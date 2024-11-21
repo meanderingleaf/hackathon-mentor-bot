@@ -1,0 +1,36 @@
+{
+    "global-stats": {
+        "total_lines": 335,
+        "total_files": 5,
+        "total_size": 14758,
+        "languages": []
+    },
+    "repo_array": [
+        {
+            "discord_user": "user",
+            "github_user": "totally-not-frito-lays",
+            "github_repo": "swapy-sandbox",
+            "file_stats": {
+                "repo_stats": {
+                    "total_lines": 109,
+                    "total_files": 3,
+                    "total_size": 4834
+                },
+                "repo_breakdown": {}
+            }
+        },
+        {
+            "discord_user": "user",
+            "github_user": "meanderingleaf",
+            "github_repo": "hackathon-mentor-bot",
+            "file_stats": {
+                "repo_stats": {
+                    "total_lines": 226,
+                    "total_files": 2,
+                    "total_size": 9924
+                },
+                "repo_breakdown": {}
+            }
+        }
+    ]
+}
