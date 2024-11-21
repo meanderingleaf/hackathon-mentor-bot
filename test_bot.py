@@ -158,7 +158,9 @@ async def start_survey(user):
     await save_responses_to_file(user.id)
 
 async def save_responses_to_file(user_id):
-    filename = f'{user_id}.json'
+    folder = 'thermometer_responses'
+    os.makedirs(folder, exist_ok=True)
+    filename = os.path.join(folder, f'{user_id}.json')
     data = []
 
     if os.path.exists(filename):
