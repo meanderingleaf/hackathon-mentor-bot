@@ -5,6 +5,7 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import random
+import plotly.express as px
 
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -61,6 +62,24 @@ async def schedule_message(ctx, identifier: str, interval_minutes: int, *, messa
         await ctx.send(f'Message scheduled to role {target.name} every {interval_minutes} minutes.')
     else:
         await ctx.send(f'Message scheduled to {target.name} every {interval_minutes} minutes.')
+
+@bot.command(name='dmslide')
+async def send_message(ctx):
+    fig = px.bar(x=["lines of code", "bytes", "files"], y=[100, 3, 1])
+
+    fig.show()
+
+    if not os.path.exists("images"):
+        os.mkdir("images")
+        fig.write_image("images/fig1.png")
+
+    embed = discord.Embed(title = "Collective Progress", description="Test", color=discord.Color.red)
+    embed.set_footer("neat")
+
+    await bot.say(embed=embed)
+    #make graph
+    #embed graph
+    #Whatever else.
 
 @bot.command(name='send')
 @commands.has_permissions(administrator=True)
@@ -131,6 +150,8 @@ async def send_scheduled_messages():
             # Update the next_send_time for the scheduled message
             scheduled_messages[i] = (target_id, is_role, message, now + timedelta(minutes=interval), interval)
             print(f"Rescheduled message for target ID {target_id} to send at {now + timedelta(minutes=interval)}")
+
+
 
 
 bot.run(BOT_TOKEN)
