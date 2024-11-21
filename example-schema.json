@@ -1,0 +1,26 @@
+{
+  "discord_user": "user",
+  "github_user": "user",
+  "github_repo": "repo",
+  "file_stats": {
+    "repo_stats": {
+      "total_lines": 34,
+      "total_files": 4,
+      "total_size": 21280
+    },
+    "repo_breakdown": {
+      "html": {
+        "name": "HTML",
+        "count": 1,
+        "lines": 10,
+        "size": 20400
+      }, 
+      "js": {
+        "name": "JavaScript",
+        "count": 3,
+        "lines": 24,
+        "size": 880
+      }
+    }
+  }
+}
