@@ -16,6 +16,13 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user}')
+    if not send_scheduled_messages.is_running():
+        print("Starting scheduled messages task.")
+        send_scheduled_messages.start()
+
 def get_user_or_role(ctx, identifier):
     # Check if the identifier is a user
     user = discord.utils.get(ctx.guild.members, name=identifier)
@@ -84,21 +91,6 @@ async def send_message(ctx, identifier: str, *, message: str):
         except discord.Forbidden:
             await ctx.send(f'Could not send message to {target.name}.')
 
-"""
-This @bot.event is an override and we need to add the message processor
-back to the main thread with `await bot.process_commands(message)`
-"""
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-
-    if message.content.startswith('$hello'):
-        await message.channel.send('Hello!')
-    
-    # needed to process other `bot.commands`
-    await bot.process_commands(message)
-
 @tasks.loop(seconds=30)
 async def send_scheduled_messages():
     now = datetime.now()
@@ -132,5 +124,52 @@ async def send_scheduled_messages():
             scheduled_messages[i] = (target_id, is_role, message, now + timedelta(minutes=interval), interval)
             print(f"Rescheduled message for target ID {target_id} to send at {now + timedelta(minutes=interval)}")
 
+user_responses = {}
+
+async def start_survey(user):
+    questions = [
+        "Thermometer Testing: 1-10 + explanation\nFunction (integer) - how well solution/approach works:",
+        "Elegance (integer) - the beauty of the design, thinking beauty:",
+        "Effort (integer) - How hard you worked:",
+        "Resources (list) - list the number, name, and kinds of resources:"
+    ]
+    if user.id not in user_responses:
+        user_responses[user.id] = []
+
+    for question in questions:
+        await user.send(question)
+        def check(m):
+            return m.author == user and isinstance(m.channel, discord.DMChannel)
+        response = await bot.wait_for('message', check=check)
+        user_responses[user.id].append(response.content)
+
+    await save_responses_to_file(user.id)
+
+async def save_responses_to_file(user_id):
+    with open('survey_responses.txt', 'a') as f:
+        f.write(f"Responses from user {user_id}:\n")
+        for response in user_responses[user_id]:
+            f.write(response + "\n")
+        f.write("\n")
+
+
+"""
+This @bot.event is an override and we need to add the message processor
+back to the main thread with `await bot.process_commands(message)`
+"""
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    # Check if the message is in the specified channel
+    if message.channel.id == 1309259804333572217:
+        await start_survey(message.author)
+
+    if message.content.startswith('$hello'):
+        await message.channel.send('Hello!')
+    
+    # needed to process other `bot.commands`
+    await bot.process_commands(message)
 
 bot.run(BOT_TOKEN)
