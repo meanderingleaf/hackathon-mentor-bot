@@ -1,10 +1,8 @@
-import requests
 import json
+import requests
 from collections import defaultdict
 
 GITHUB_API_URL = "https://api.github.com"
-REPO_OWNER = "totally-not-frito-lays"  # Replace with the repo owner (can be a user or org)
-REPO_NAME = "swapy-sandbox"  # Replace with the repo name
 
 FILE_EXTENSIONS = {
     'Python': ['.py'],
@@ -20,12 +18,15 @@ FILE_EXTENSIONS = {
 }
 
 def fetch_files(repo_owner, repo_name):
-    url = f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1"
-    response = requests.get(url)
-    if response.status_code == 403:
-        print("Rate limit exceeded. Try again later.")
-        exit()
-    return response.json()['tree']
+    response = requests.get(f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1")
+    response_data = response.json()
+    print(f"{response_data = }")
+    
+    if 'tree' in response_data:
+        return response_data['tree']
+    else:
+        print(f"Error: 'tree' key not found in the response for repo {repo_owner}/{repo_name}")
+        return []
 
 def count_files(files, file_extensions):
     language_counts = defaultdict(int)
@@ -45,10 +46,6 @@ def fetch_language_bytes(repo_owner, repo_name):
         print("Rate limit exceeded. Try again later.")
         exit()
     return response.json()
-
-def write_results_to_file(data, filename):
-    with open(filename, "w") as file:
-        file.write(json.dumps(data, indent=4))
 
 def count_lines_per_file(repo_owner, repo_name):
     url = f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1"
@@ -77,26 +74,78 @@ def count_lines_per_file(repo_owner, repo_name):
     
     return line_counts
 
-def main():
-    files = fetch_files(REPO_OWNER, REPO_NAME)
+def process_repo(repo_owner, repo_name):
+    files = fetch_files(repo_owner, repo_name)
     language_counts = count_files(files, FILE_EXTENSIONS)
-    languages_data = fetch_language_bytes(REPO_OWNER, REPO_NAME)
+    languages_data = fetch_language_bytes(repo_owner, repo_name)
+    line_counts = count_lines_per_file(repo_owner, repo_name)
 
-    print("File count per language:")
+    total_lines = sum(line_counts.values())
+    total_files = len(line_counts)
+    total_size = sum(languages_data.values())
+
+    repo_stats = {
+        "total_lines": total_lines,
+        "total_files": total_files,
+        "total_size": total_size
+    }
+
+    repo_breakdown = {}
     for language, count in language_counts.items():
-        print(f"{language}: {count} files")
+        repo_breakdown[language.lower()] = {
+            "name": language,
+            "count": count,
+            "lines": sum(line_counts[file] for file in line_counts if file.endswith(tuple(FILE_EXTENSIONS[language]))),
+            "size": languages_data.get(language, 0)
+        }
 
-    print("\nLanguages used (by bytes):")
-    for language, bytes in languages_data.items():
-        print(f"{language}: {bytes} bytes")
+    return {
+        "discord_user": "user",
+        "github_user": repo_owner,
+        "github_repo": repo_name,
+        "file_stats": {
+            "repo_stats": repo_stats,
+            "repo_breakdown": repo_breakdown
+        }
+    }
 
-    line_counts = count_lines_per_file(REPO_OWNER, REPO_NAME)
-    
-    print("\nLine count per file:")
-    for file_path, line_count in line_counts.items():
-        print(f"{file_path}: {line_count} lines")
+def write_results_to_file(data, filename):
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
 
-    write_results_to_file(languages_data, "language_statistics.json")
+def main():
+    repos = [
+        {"owner": "totally-not-frito-lays", "name": "swapy-sandbox"},
+        {"owner": "meanderingleaf", "name": "hackathon-mentor-bot"},
+        # Add more repositories as needed
+    ]
+
+    global_stats = {
+        "total_lines": 0,
+        "total_files": 0,
+        "total_size": 0,
+        "languages": set()
+    }
+
+    repo_array = []
+
+    for repo in repos:
+        repo_data = process_repo(repo["owner"], repo["name"])
+        repo_array.append(repo_data)
+
+        global_stats["total_lines"] += repo_data["file_stats"]["repo_stats"]["total_lines"]
+        global_stats["total_files"] += repo_data["file_stats"]["repo_stats"]["total_files"]
+        global_stats["total_size"] += repo_data["file_stats"]["repo_stats"]["total_size"]
+        global_stats["languages"].update(repo_data["file_stats"]["repo_breakdown"].keys())
+
+    global_stats["languages"] = list(global_stats["languages"])
+
+    output_data = {
+        "global-stats": global_stats,
+        "repo_array": repo_array
+    }
+
+    write_results_to_file(output_data, "global_stats.json")
 
 if __name__ == "__main__":
     main()
