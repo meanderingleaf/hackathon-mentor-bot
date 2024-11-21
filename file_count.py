@@ -1,8 +1,12 @@
 import json
 import requests
 from collections import defaultdict
+from dotenv import load_dotenv
+import os
 
 GITHUB_API_URL = "https://api.github.com"
+load_dotenv()
+GITHUB_PAT = os.getenv("GITHUB_PAT")
 
 FILE_EXTENSIONS = {
     'Python': ['.py'],
@@ -17,10 +21,16 @@ FILE_EXTENSIONS = {
     'Text': ['.txt', '.log'],
 }
 
+def get_headers():
+    headers = {}
+    if GITHUB_PAT:
+        headers["Authorization"] = f"token {GITHUB_PAT}"
+    return headers
+
 def fetch_files(repo_owner, repo_name):
-    response = requests.get(f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1")
+    response = requests.get(f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1", headers=get_headers())
     response_data = response.json()
-    print(f"{response_data = }")
+    # print(f"{response_data = }")
     
     if 'tree' in response_data:
         return response_data['tree']
@@ -41,7 +51,7 @@ def count_files(files, file_extensions):
 
 def fetch_language_bytes(repo_owner, repo_name):
     url = f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/languages"
-    response = requests.get(url)
+    response = requests.get(url, headers=get_headers())
     if response.status_code == 403:
         print("Rate limit exceeded. Try again later.")
         exit()
@@ -49,7 +59,7 @@ def fetch_language_bytes(repo_owner, repo_name):
 
 def count_lines_per_file(repo_owner, repo_name):
     url = f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1"
-    response = requests.get(url)
+    response = requests.get(url, headers=get_headers())
     if response.status_code == 403:
         print("Rate limit exceeded. Try again later.")
         exit()
@@ -65,7 +75,7 @@ def count_lines_per_file(repo_owner, repo_name):
             if '.' not in file_path or any(file_path.endswith(ext) for ext in ignored_extensions) or any(dir in file_path.split('/') for dir in ignored_directories):
                 continue
             file_url = f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/blobs/{file['sha']}"
-            file_response = requests.get(file_url)
+            file_response = requests.get(file_url, headers=get_headers())
             if file_response.status_code == 403:
                 print("Rate limit exceeded. Try again later.")
                 exit()
