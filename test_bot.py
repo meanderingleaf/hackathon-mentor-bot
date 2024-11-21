@@ -45,6 +45,10 @@ async def send_message(ctx, user: discord.User, *, message: str):
     except discord.Forbidden:
         await ctx.send(f'Could not send message to {user.name}.')
 
+"""
+This @bot.event is an override and we need to add the message processor
+back to the main thread with `await bot.process_commands(message)`
+"""
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -52,5 +56,8 @@ async def on_message(message):
 
     if message.content.startswith('$hello'):
         await message.channel.send('Hello!')
+    
+    # needed to process other `bot.commands`
+    await bot.process_commands(message)
 
 bot.run(BOT_TOKEN)
