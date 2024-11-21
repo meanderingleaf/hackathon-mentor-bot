@@ -10,6 +10,8 @@ import plotly.express as px
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_TOKEN = os.getenv('DISCORD_GUILD')
+STATS_CHANNEL = 1309194360042160138
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -63,23 +65,25 @@ async def schedule_message(ctx, identifier: str, interval_minutes: int, *, messa
     else:
         await ctx.send(f'Message scheduled to {target.name} every {interval_minutes} minutes.')
 
-@bot.command(name='dmslide')
+@bot.command(name='testembed')
 async def send_message(ctx):
-    fig = px.bar(x=["lines of code", "bytes", "files"], y=[100, 3, 1])
+    fig = px.bar(x=["lines of code", "bytes", "files"], y=[1, 100, 1])
 
-    fig.show()
+    #fig.show()
 
     if not os.path.exists("images"):
         os.mkdir("images")
-        fig.write_image("images/fig1.png")
+    
+    fig.write_image("images/checkins.png")
 
-    embed = discord.Embed(title = "Collective Progress", description="Test", color=discord.Color.red)
-    embed.set_footer("neat")
+    file = discord.File("images/checkins.png", filename="checkins.png")
+    
+    embed = discord.Embed(title = "Collective Progress", description="We're making it", color=discord.Color.green() )
 
-    await bot.say(embed=embed)
-    #make graph
-    #embed graph
-    #Whatever else.
+    embed.set_image(url="attachment://image.png")
+
+    channel = bot.get_channel(STATS_CHANNEL)
+    await channel.send(file=file,embed=embed)
 
 @bot.command(name='send')
 @commands.has_permissions(administrator=True)
