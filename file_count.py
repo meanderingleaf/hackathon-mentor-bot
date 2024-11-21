@@ -6,7 +6,6 @@ GITHUB_API_URL = "https://api.github.com"
 REPO_OWNER = "totally-not-frito-lays"  # Replace with the repo owner (can be a user or org)
 REPO_NAME = "swapy-sandbox"  # Replace with the repo name
 
-# Define file extensions for different languages
 FILE_EXTENSIONS = {
     'Python': ['.py'],
     'JavaScript': ['.js'],
@@ -20,50 +19,51 @@ FILE_EXTENSIONS = {
     'Text': ['.txt', '.log'],
 }
 
-# Fetch the list of files in the repository (recursively)
-url = f"{GITHUB_API_URL}/repos/{REPO_OWNER}/{REPO_NAME}/git/trees/main?recursive=1"
-response = requests.get(url)
+def fetch_files(repo_owner, repo_name):
+    url = f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1"
+    response = requests.get(url)
+    if response.status_code == 403:
+        print("Rate limit exceeded. Try again later.")
+        exit()
+    return response.json()['tree']
 
-# Handle rate limits and errors
-if response.status_code == 403:
-    print("Rate limit exceeded. Try again later.")
-    exit()
+def count_files(files, file_extensions):
+    language_counts = defaultdict(int)
+    for file in files:
+        if file['type'] == 'blob':
+            file_path = file['path']
+            for language, extensions in file_extensions.items():
+                if any(file_path.endswith(ext) for ext in extensions):
+                    language_counts[language] += 1
+                    break
+    return language_counts
 
-files_data = response.json()
-files = files_data['tree']
+def fetch_language_bytes(repo_owner, repo_name):
+    url = f"{GITHUB_API_URL}/repos/{repo_owner}/{repo_name}/languages"
+    response = requests.get(url)
+    if response.status_code == 403:
+        print("Rate limit exceeded. Try again later.")
+        exit()
+    return response.json()
 
-# Dictionary to store file counts per language
-language_counts = defaultdict(int)
+def write_results_to_file(data, filename):
+    with open(filename, "w") as file:
+        file.write(json.dumps(data, indent=4))
 
-# Count files per language
-for file in files:
-    if file['type'] == 'blob':  # Only count actual files
-        file_path = file['path']
-        for language, extensions in FILE_EXTENSIONS.items():
-            if any(file_path.endswith(ext) for ext in extensions):
-                language_counts[language] += 1
-                break
+def main():
+    files = fetch_files(REPO_OWNER, REPO_NAME)
+    language_counts = count_files(files, FILE_EXTENSIONS)
+    languages_data = fetch_language_bytes(REPO_OWNER, REPO_NAME)
 
-# Fetch language byte count from GitHub API
-languages_url = f"{GITHUB_API_URL}/repos/{REPO_OWNER}/{REPO_NAME}/languages"
-languages_response = requests.get(languages_url)
+    print("File count per language:")
+    for language, count in language_counts.items():
+        print(f"{language}: {count} files")
 
-# Handle rate limits and errors
-if languages_response.status_code == 403:
-    print("Rate limit exceeded. Try again later.")
-    exit()
+    print("\nLanguages used (by bytes):")
+    for language, bytes in languages_data.items():
+        print(f"{language}: {bytes} bytes")
 
-languages_data = languages_response.json()
+    write_results_to_file(languages_data, "language_statistics.json")
 
-# Combine the file count and byte count data
-print("File count per language:")
-for language, count in language_counts.items():
-    print(f"{language}: {count} files")
-
-print("\nLanguages used (by bytes):")
-for language, bytes in languages_data.items():
-    print(f"{language}: {bytes} bytes")
-
-# Write the results to a new text file
-with open("language_statistics.json", "w") as file:
-    file.write(json.dumps(languages_response.json(), indent=4))
+if __name__ == "__main__":
+    main()
