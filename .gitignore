@@ -1,3 +1,6 @@
+# Ignore json files for thermometer
+thermometer_respnoses/*.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
