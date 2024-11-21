@@ -5,6 +5,7 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import random
+import json
 
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -20,7 +21,6 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 async def on_ready():
     print(f'Logged in as {bot.user}')
     if not send_scheduled_messages.is_running():
-        print("Starting scheduled messages task.")
         send_scheduled_messages.start()
 
 def get_user_or_role(ctx, identifier):
@@ -131,26 +131,48 @@ async def start_survey(user):
         "Thermometer Testing: 1-10 + explanation\nFunction (integer) - how well solution/approach works:",
         "Elegance (integer) - the beauty of the design, thinking beauty:",
         "Effort (integer) - How hard you worked:",
-        "Resources (list) - list the number, name, and kinds of resources:"
+        "Resources (list) - list the number, name, and kinds of resources (type 'done' when finished):"
     ]
     if user.id not in user_responses:
         user_responses[user.id] = []
 
-    for question in questions:
+    for question in questions[:-1]:
         await user.send(question)
         def check(m):
             return m.author == user and isinstance(m.channel, discord.DMChannel)
         response = await bot.wait_for('message', check=check)
-        user_responses[user.id].append(response.content)
+        user_responses[user.id].append((question, response.content))
+
+    # Handle the "Resources" question separately
+    await user.send(questions[-1])
+    resources = []
+    while True:
+        def check(m):
+            return m.author == user and isinstance(m.channel, discord.DMChannel)
+        response = await bot.wait_for('message', check=check)
+        if response.content.lower() == 'done':
+            break
+        resources.append(response.content)
+    user_responses[user.id].append((questions[-1], resources))
 
     await save_responses_to_file(user.id)
 
 async def save_responses_to_file(user_id):
-    with open('survey_responses.txt', 'a') as f:
-        f.write(f"Responses from user {user_id}:\n")
-        for response in user_responses[user_id]:
-            f.write(response + "\n")
-        f.write("\n")
+    filename = f'{user_id}.json'
+    data = []
+
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            data = json.load(f)
+
+    response_number = len(data) + 1
+    data.append({
+        "response_number": response_number,
+        "responses": user_responses[user_id]
+    })
+
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
 
 
 """
