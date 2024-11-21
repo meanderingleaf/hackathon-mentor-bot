@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import random
 import json
+import plotly.graph_objects as go
+import plotly.io as pio
 
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -137,11 +139,20 @@ async def start_survey(user):
         user_responses[user.id] = []
 
     for question in questions[:-1]:
-        await user.send(question)
-        def check(m):
-            return m.author == user and isinstance(m.channel, discord.DMChannel)
-        response = await bot.wait_for('message', check=check)
-        user_responses[user.id].append((question, response.content))
+        while True:
+            await user.send(question)
+            def check(m):
+                return m.author == user and isinstance(m.channel, discord.DMChannel)
+            response = await bot.wait_for('message', check=check)
+            try:
+                value = int(response.content)
+                if 1 <= value <= 10:
+                    user_responses[user.id].append((question, response.content))
+                    break
+                else:
+                    await user.send("Please enter a valid integer between 1 and 10.")
+            except ValueError:
+                await user.send("Please enter a valid integer between 1 and 10.")
 
     # Handle the "Resources" question separately
     await user.send(questions[-1])
@@ -175,6 +186,61 @@ async def save_responses_to_file(user_id):
 
     with open(filename, 'w') as f:
         json.dump(data, f, indent=4)
+
+@bot.command(name='my_temps')
+async def get_responses(ctx):
+    folder = 'thermometer_responses'
+    user_id = ctx.author.id
+    filename = os.path.join(folder, f'{user_id}.json')
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            data = json.load(f)
+
+        # Extract responses for plotting
+        response_numbers = []
+        function_scores = []
+        elegance_scores = []
+        effort_scores = []
+        resources_list = []
+
+        for entry in data:
+            response_numbers.append(entry["response_number"])
+            for question, response in entry["responses"]:
+                if "Function" in question:
+                    function_scores.append(int(response))
+                elif "Elegance" in question:
+                    elegance_scores.append(int(response))
+                elif "Effort" in question:
+                    effort_scores.append(int(response))
+                elif "Resources" in question:
+                    resources_list.append(response)
+
+        # Create the plot
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=response_numbers, y=function_scores, mode='lines+markers', name='Function'))
+        fig.add_trace(go.Scatter(x=response_numbers, y=elegance_scores, mode='lines+markers', name='Elegance'))
+        fig.add_trace(go.Scatter(x=response_numbers, y=effort_scores, mode='lines+markers', name='Effort'))
+
+        fig.update_layout(title='Thermometer Responses',
+                          xaxis_title='Response Number',
+                          yaxis_title='Score',
+                          legend_title='Questions')
+
+        # Save the plot as an image
+        image_path = os.path.join(folder, f'{user_id}_plot.png')
+        pio.write_image(fig, image_path)
+
+        # Prepare resources text
+        resources_text = "\n\n".join([f"Response {i+1}:\n" + "\n".join(resources) for i, resources in enumerate(resources_list)])
+
+        # Send the plot as an embed
+        file = discord.File(image_path, filename=f'{user_id}_plot.png')
+        embed = discord.Embed(title="Your Thermometer Data")
+        embed.set_image(url=f'attachment://{user_id}_plot.png')
+        embed.add_field(name="Resources", value=resources_text if resources_text else "No resources provided", inline=False)
+        await ctx.author.send(embed=embed, file=file)
+    else:
+        await ctx.author.send("You have no recorded responses.")
 
 
 """
