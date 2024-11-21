@@ -18,12 +18,14 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='$', intents=intents)
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
-    if not send_scheduled_messages.is_running():
-        send_scheduled_messages.start()
+    # if not send_scheduled_messages.is_running():
+    #     send_scheduled_messages.start()
+    scheduler.start()
 
 def get_user_or_role(ctx, identifier):
     # Check if the identifier is a user
@@ -54,77 +56,185 @@ async def nine_nine(ctx):
     response = random.choice(brooklyn_99_quotes)
     await ctx.send(response)
 
-@bot.command(name='schedule')
-@commands.has_permissions(administrator=True)
-async def schedule_message(ctx, identifier: str, interval_minutes: int, *, message: str):
-    """Schedule messages to send to a user or all members with a specific role at intervals."""
-    target, target_type = get_user_or_role(ctx, identifier)
-    if not target:
-        await ctx.send(f"Couldn't find user or role with the name: {identifier}")
-        return
-    
-    next_send_time = datetime.now() + timedelta(minutes=interval_minutes)
-    is_role = (target_type == 'role')
-    scheduled_messages.append((target.id, is_role, message, next_send_time, interval_minutes))
-    if is_role:
-        await ctx.send(f'Message scheduled to role {target.name} every {interval_minutes} minutes.')
-    else:
-        await ctx.send(f'Message scheduled to {target.name} every {interval_minutes} minutes.')
+scheduler = AsyncIOScheduler()
 
-@bot.command(name='send')
+@bot.command(name='schedule-test')
 @commands.has_permissions(administrator=True)
-async def send_message(ctx, identifier: str, *, message: str):
-    """Send an immediate message to a user or all members with a specific role."""
-    target, target_type = get_user_or_role(ctx, identifier)
-    if not target:
-        await ctx.send(f"Couldn't find user or role with the name: {identifier}")
-        return
+async def schedule_command(ctx):
+    """
+    Schedule a message to a user or all members of a role, either one-time or recurring.
+    """
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
 
+    await ctx.send("Type `1` for a one-time message or `2` for a recurring message:")
+
+    try:
+        response = await bot.wait_for('message', check=check, timeout=60.0)
+
+        if response.content == '1':  # One-time schedule
+            await ctx.send("You chose one-time. Please provide the target (user or role):")
+            target_response = await bot.wait_for('message', check=check, timeout=60.0)
+            target, target_type = get_user_or_role(ctx, target_response.content)
+
+            if not target:
+                await ctx.send(f"Couldn't find user or role with the name: {target_response.content}")
+                return
+
+            await ctx.send("Please provide the date and time in the format: `YYYY-MM-DD HH:MM`")
+            time_response = await bot.wait_for('message', check=check, timeout=60.0)
+            try:
+                date_time = datetime.strptime(time_response.content, "%Y-%m-%d %H:%M")
+            except ValueError:
+                await ctx.send("Invalid date-time format. Please use `2024-11-21 14:40`.")
+                return
+
+            await ctx.send("Please provide the message to be sent:")
+            message_response = await bot.wait_for('message', check=check, timeout=60.0)
+            message = message_response.content
+
+            async def send_message():
+                await send_message_to_target(target, target_type, message, ctx)
+
+            scheduler.add_job(send_message, 'date', run_date=date_time)
+            await ctx.send(f"One-time message scheduled for {date_time}.")
+
+        elif response.content == '2':  # Recurring schedule
+            await ctx.send("You chose recurring. Please provide the target (user or role):")
+            target_response = await bot.wait_for('message', check=check, timeout=60.0)
+            target, target_type = get_user_or_role(ctx, target_response.content)
+
+            if not target:
+                await ctx.send(f"Couldn't find user or role with the name: {target_response.content}")
+                return
+
+            await ctx.send(
+                "Please provide the start date, interval, and end date in the format: "
+                "`2024-11-24 14:30 hours=24 2024-11-27 14:30`"
+            )
+            interval_response = await bot.wait_for('message', check=check, timeout=60.0)
+
+            try:
+                parts = interval_response.content.split()
+                start_date_time = datetime.strptime(parts[0] + ' ' + parts[1], "%Y-%m-%d %H:%M")
+                interval = parts[2]
+                end_date_time = datetime.strptime(parts[3] + ' ' + parts[4], "%Y-%m-%d %H:%M")
+                
+
+                if "hours" in interval:
+                    interval_kwargs = {"hours": int(interval.split('=')[1])}
+                elif "minutes" in interval:
+                    interval_kwargs = {"minutes": int(interval.split('=')[1])}
+                else:
+                    await ctx.send("Invalid interval format. Use `hours=24` or `minutes=60`.")
+                    return
+
+            except (ValueError, IndexError):
+                await ctx.send("Invalid input format. Please follow the provided example.")
+                return
+
+            await ctx.send("Please provide the message to be sent:")
+            message_response = await bot.wait_for('message', check=check, timeout=60.0)
+            message = message_response.content
+
+            async def send_message():
+                await send_message_to_target(target, target_type, message, ctx)
+
+            scheduler.add_job(
+                send_message,
+                'interval',
+                start_date=start_date_time,
+                end_date=end_date_time,
+                **interval_kwargs
+            )
+            await ctx.send(
+                f"Recurring message scheduled starting from {start_date_time} every {interval} until {end_date_time}."
+            )
+        else:
+            await ctx.send("Invalid choice. Please type `1` or `2`.")
+    except asyncio.TimeoutError:
+        await ctx.send("You took too long to respond. Please try again.")
+
+
+async def send_message_to_target(target, target_type, message, ctx):
+    """
+    Sends a message to a target. If the target is a role, sends the message to all members of the role.
+    """
     if target_type == 'role':
         for member in target.members:
-            try:
-                await member.send(message)
-            except discord.Forbidden:
-                await ctx.send(f'Could not send message to {member.name}.')
+            if not member.bot:  # Skip bot accounts
+                try:
+                    await member.send(message)
+                except discord.Forbidden:
+                    await ctx.send(f"Could not send message to {member.name} (DMs might be closed).")
+                except discord.HTTPException as e:
+                    await ctx.send(f"Failed to send message to {member.name} due to an error: {e}")
     else:
         try:
             await target.send(message)
-            await ctx.send(f'Message sent to {target.name}.')
+            await ctx.send(f"Message sent to {target.name}.")
         except discord.Forbidden:
-            await ctx.send(f'Could not send message to {target.name}.')
+            await ctx.send(f"Could not send message to {target.name} (DMs might be closed).")
+        except discord.HTTPException as e:
+            await ctx.send(f"Failed to send message to {target.name} due to an error: {e}")
 
-@tasks.loop(seconds=30)
-async def send_scheduled_messages():
-    now = datetime.now()
-    for i, (target_id, is_role, message, next_send_time, interval) in enumerate(scheduled_messages):
-        print(f"Checking scheduled message for target ID {target_id} (is_role: {is_role}) at {now}")
 
-        if now >= next_send_time:
-            if is_role:
-                role = discord.utils.get(bot.get_guild(GUILD_TOKEN).roles, id=target_id)
-                if role:
-                    print(f"Sending message to role: {role.name}")
 
-                    for member in role.members:
-                        try:
-                            await member.send(message)
-                            print(f"Sent message to {member.name}")
-                        except discord.Forbidden:
-                            print(f"Could not send message to {member.name}.")
-            else:
-                user = bot.get_user(target_id)
-                if user:
-                    try:
-                        await user.send(message)
-                        print(f"Sent message to {user.name}")
-                    except discord.Forbidden:
-                        print(f"Could not send message to {user.name}.")
-                else:
-                    print(f"User with ID {target_id} not found.")
 
-            # Update the next_send_time for the scheduled message
-            scheduled_messages[i] = (target_id, is_role, message, now + timedelta(minutes=interval), interval)
-            print(f"Rescheduled message for target ID {target_id} to send at {now + timedelta(minutes=interval)}")
+# @bot.command(name='send')
+# @commands.has_permissions(administrator=True)
+# async def send_message(ctx, identifier: str, *, message: str):
+#     """Send an immediate message to a user or all members with a specific role."""
+#     target, target_type = get_user_or_role(ctx, identifier)
+#     if not target:
+#         await ctx.send(f"Couldn't find user or role with the name: {identifier}")
+#         return
+
+#     if target_type == 'role':
+#         for member in target.members:
+#             try:
+#                 await member.send(message)
+#             except discord.Forbidden:
+#                 await ctx.send(f'Could not send message to {member.name}.')
+#     else:
+#         try:
+#             await target.send(message)
+#             await ctx.send(f'Message sent to {target.name}.')
+#         except discord.Forbidden:
+#             await ctx.send(f'Could not send message to {target.name}.')
+
+# @tasks.loop(seconds=30)
+# async def send_scheduled_messages():
+#     now = datetime.now()
+#     for i, (target_id, is_role, message, next_send_time, interval) in enumerate(scheduled_messages):
+#         print(f"Checking scheduled message for target ID {target_id} (is_role: {is_role}) at {now}")
+
+#         if now >= next_send_time:
+#             if is_role:
+#                 role = discord.utils.get(bot.get_guild(GUILD_TOKEN).roles, id=target_id)
+#                 if role:
+#                     print(f"Sending message to role: {role.name}")
+
+#                     for member in role.members:
+#                         try:
+#                             await member.send(message)
+#                             print(f"Sent message to {member.name}")
+#                         except discord.Forbidden:
+#                             print(f"Could not send message to {member.name}.")
+#             else:
+#                 user = bot.get_user(target_id)
+#                 if user:
+#                     try:
+#                         await user.send(message)
+#                         print(f"Sent message to {user.name}")
+#                     except discord.Forbidden:
+#                         print(f"Could not send message to {user.name}.")
+#                 else:
+#                     print(f"User with ID {target_id} not found.")
+
+#             # Update the next_send_time for the scheduled message
+#             scheduled_messages[i] = (target_id, is_role, message, now + timedelta(minutes=interval), interval)
+#             print(f"Rescheduled message for target ID {target_id} to send at {now + timedelta(minutes=interval)}")
 
 user_responses = {}
 
