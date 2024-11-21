@@ -1,9 +1,10 @@
 import requests
+import json
 from collections import defaultdict
 
 GITHUB_API_URL = "https://api.github.com"
 REPO_OWNER = "totally-not-frito-lays"  # Replace with the repo owner (can be a user or org)
-REPO_NAME = "23-Workshop-Recursion-Turtles_Trees"  # Replace with the repo name
+REPO_NAME = "swapy-sandbox"  # Replace with the repo name
 
 # Define file extensions for different languages
 FILE_EXTENSIONS = {
@@ -62,3 +63,7 @@ for language, count in language_counts.items():
 print("\nLanguages used (by bytes):")
 for language, bytes in languages_data.items():
     print(f"{language}: {bytes} bytes")
+
+# Write the results to a new text file
+with open("language_statistics.json", "w") as file:
+    file.write(json.dumps(languages_response.json(), indent=4))
