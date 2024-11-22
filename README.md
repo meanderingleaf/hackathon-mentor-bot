@@ -35,3 +35,8 @@ It asks the user 4 questions:
 - Rate the elegance or beauty of your function or thinking on a scale from 1-10
 - Rate your effort on a scale from 1-10
 - List the sources you used to help you learn or solve the problem
+
+## User Flow
+
+![User Flow Diagram](./assets/user-flow.png)
+[User Flow Diagram](https://www.tldraw.com/s/v2_c_mIoelW-FkU6DonizF8qRQ?d=v230.-740.3166.1844.u3uTLtOXOF0gz0ZSLETkT)
