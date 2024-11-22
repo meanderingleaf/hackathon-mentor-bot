@@ -65,6 +65,37 @@ async def nine_nine(ctx):
 
 scheduler = AsyncIOScheduler()
 
+@bot.command(name='collectivestats')
+async def send_message(ctx):
+    fig = px.bar(x=["lines of code", "bytes", "files"], y=[1, 100, 1])
+    #fig.show()
+    #draw figure
+
+    #write figure out to file system
+    if not os.path.exists("images"):
+        os.mkdir("images")
+
+    fig.write_image("images/checkins.png")
+
+    #create file attachment for discord
+    file = discord.File("images/checkins.png", filename="checkins.png")
+    
+    #generate an embed
+    embed = discord.Embed(title = "Our Collective Progress", description="Lets go team!", color=discord.Color.green() )
+    embed.set_image(url="attachment://image.png")
+
+    #send embed to the stats channel
+    channel = bot.get_channel(STATS_CHANNEL)
+    #TODO - refactor into a class
+    #global GROUP_STATS_EMBED
+    #if GROUP_STATS_EMBED:
+        #edit prexisting message
+    #    await GROUP_STATS_EMBED.edit(embed=embed)
+    #else:
+          #make new embed if there is not one
+    GROUP_STATS_EMBED = await channel.send(file=file,embed=embed)
+
+
 @bot.command(name='schedule-test')
 @commands.has_permissions(administrator=True)
 async def schedule_command(ctx):
