@@ -9,10 +9,14 @@ import json
 import plotly.express as px
 
 load_dotenv()
+
+#program constants
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_TOKEN = os.getenv('DISCORD_GUILD')
 STATS_CHANNEL = 1309194360042160138
 
+#runtime constants
+GROUP_STATS_EMBED = None
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -72,25 +76,39 @@ async def schedule_message(ctx, identifier: str, interval_minutes: int, *, messa
     else:
         await ctx.send(f'Message scheduled to {target.name} every {interval_minutes} minutes.')
 
-@bot.command(name='testembed')
+@bot.command(name='collectivestats')
 async def send_message(ctx):
-    fig = px.bar(x=["lines of code", "bytes", "files"], y=[1, 100, 1])
+    #draw figure
+    fig = px.bar(x=["lines of code", "bytes", "files"], y=[random.random() * 50, random.random()*70, random.random()*70])
 
-    #fig.show()
-
+    #write figure out to file system
     if not os.path.exists("images"):
         os.mkdir("images")
     
     fig.write_image("images/checkins.png")
 
+    #create file attachment for discord
     file = discord.File("images/checkins.png", filename="checkins.png")
-    
-    embed = discord.Embed(title = "Collective Progress", description="We're making it", color=discord.Color.green() )
 
+    #generate an embed
+    embed = discord.Embed(title = "Our Collective Progress", description="Lets go team!", color=discord.Color.green() )
     embed.set_image(url="attachment://image.png")
 
+    #send embed to the stats channel
     channel = bot.get_channel(STATS_CHANNEL)
-    await channel.send(file=file,embed=embed)
+
+    #TODO - refactor into a class
+    #global GROUP_STATS_EMBED
+
+    #if GROUP_STATS_EMBED:
+        #edit prexisting message
+    #    await GROUP_STATS_EMBED.edit(embed=embed)
+    #else:
+          #make new embed if there is not one
+    GROUP_STATS_EMBED = await channel.send(file=file,embed=embed)
+        
+        
+
 
 @bot.command(name='send')
 @commands.has_permissions(administrator=True)
