@@ -43,7 +43,6 @@ def get_user_or_role(ctx, identifier):
     
     return None, None
 
-scheduled_messages = []
 
 @bot.command(name='99')
 async def nine_nine(ctx):
@@ -160,7 +159,28 @@ async def schedule_command(ctx):
     except asyncio.TimeoutError:
         await ctx.send("You took too long to respond. Please try again.")
 
+@bot.command(name='schedule-list')
+@commands.has_permissions(administrator=True)
+async def list_jobs(ctx):
+    """
+    List all scheduled jobs with their IDs and next run times.
+    """
+    jobs = scheduler.get_jobs()
+    if not jobs:
+        await ctx.send("No scheduled jobs at the moment.")
+    else:
+        job_list = "\n".join([f"Job ID: {job.id}, Next Run: {job.next_run_time}" for job in jobs])
+        await ctx.send(f"Scheduled Jobs:\n{job_list}")
 
+@bot.command(name='schedule-remove')
+@commands.has_permissions(administrator=True)
+async def remove_job(ctx, job_id: str):
+    """
+    List all scheduled jobs with their IDs and next run times.
+    """
+    scheduler.remove_job(job_id)
+    await ctx.send(f"Removed: (JOB ID): {job_id}")
+    
 async def send_message_to_target(target, target_type, message, ctx):
     """
     Sends a message to a target. If the target is a role, sends the message to all members of the role.
