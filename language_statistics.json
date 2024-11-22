@@ -1,0 +1,32 @@
+{
+    "discord_user": "user",
+    "github_user": "totally-not-frito-lays",
+    "github_repo": "swapy-sandbox",
+    "file_stats": {
+        "repo_stats": {
+            "total_lines": 109,
+            "total_files": 3,
+            "total_size": 4834
+        },
+        "repo_breakdown": {
+            "markdown": {
+                "name": "Markdown",
+                "count": 1,
+                "lines": 0,
+                "size": 0
+            },
+            "html": {
+                "name": "HTML",
+                "count": 1,
+                "lines": 82,
+                "size": 3687
+            },
+            "javascript": {
+                "name": "JavaScript",
+                "count": 1,
+                "lines": 4,
+                "size": 140
+            }
+        }
+    }
+}
