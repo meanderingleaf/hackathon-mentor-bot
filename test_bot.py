@@ -65,11 +65,38 @@ async def nine_nine(ctx):
 
 scheduler = AsyncIOScheduler()
 
+def extract_repo_stats(data):
+    repo_stats = []
+    for repo in data['repo_array']:
+        stats = repo['file_stats']['repo_stats']
+        repo_stats.append({
+            'user': repo['discord_user'],
+            'total_lines': stats['total_lines'],
+            'total_files': stats['total_files'],
+            'total_size': stats['total_size'],
+            "hackathon": 1
+        })
+    return repo_stats
+
 @bot.command(name='collectivestats')
 async def send_message(ctx):
-    fig = px.bar(x=["lines of code", "bytes", "files"], y=[1, 100, 1])
-    #fig.show()
-    #draw figure
+
+    folder = 'thermometer_responses'
+
+    data = []
+
+    filename = "global-stats-example.json"
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            data = json.load(f)
+
+    repo_stats = extract_repo_stats(data)
+    total_lines = sum(repo['total_lines'] for repo in repo_stats)
+    total_files = sum(repo['total_files'] for repo in repo_stats)
+    total_size = sum(repo['total_size'] for repo in repo_stats)
+
+
+    fig = px.bar(repo_stats, x="hackathon", y="total_files", color="user", title="Hackathon Collective Progress")
 
     #write figure out to file system
     if not os.path.exists("images"):
