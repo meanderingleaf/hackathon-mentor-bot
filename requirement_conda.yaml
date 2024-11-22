@@ -1,0 +1,7 @@
+name: bot
+channels:
+  - conda-forge
+dependencies:
+  - discord.py
+  - apscheduler
+  - plotly
