@@ -8,6 +8,7 @@ import random
 import json
 import plotly.graph_objects as go
 import plotly.io as pio
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -18,7 +19,7 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='$', intents=intents)
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+scheduler = AsyncIOScheduler()
 
 @bot.event
 async def on_ready():
@@ -56,9 +57,9 @@ async def nine_nine(ctx):
     response = random.choice(brooklyn_99_quotes)
     await ctx.send(response)
 
-scheduler = AsyncIOScheduler()
 
-@bot.command(name='schedule-test')
+
+@bot.command(name='schedule')
 @commands.has_permissions(administrator=True)
 async def schedule_command(ctx):
     """
@@ -179,6 +180,27 @@ async def send_message_to_target(target, target_type, message, ctx):
             await ctx.send(f"Failed to send message to {target.name} due to an error: {e}")
 
 
+@bot.command(name='schedule-list')
+@commands.has_permissions(administrator=True)
+async def list_jobs(ctx):
+    """
+    List all scheduled jobs with their IDs and next run times.
+    """
+    jobs = scheduler.get_jobs()
+    if not jobs:
+        await ctx.send("No scheduled jobs at the moment.")
+    else:
+        job_list = "\n".join([f"Job ID: {job.id}, Next Run: {job.next_run_time}" for job in jobs])
+        await ctx.send(f"Scheduled Jobs:\n{job_list}")
+
+@bot.command(name='schedule-remove')
+@commands.has_permissions(administrator=True)
+async def remove_job(ctx, job_id: str):
+    """
+    List all scheduled jobs with their IDs and next run times.
+    """
+    scheduler.remove_job(job_id)
+    await ctx.send(f"Removed: (JOB ID): {job_id}")
 
 
 # @bot.command(name='send')
