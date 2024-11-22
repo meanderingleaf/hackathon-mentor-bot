@@ -19,7 +19,9 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='$', intents=intents)
+
 scheduler = AsyncIOScheduler()
+
 
 @bot.event
 async def on_ready():
@@ -58,7 +60,6 @@ async def nine_nine(ctx):
     await ctx.send(response)
 
 
-
 @bot.command(name='schedule')
 @commands.has_permissions(administrator=True)
 async def schedule_command(ctx):
@@ -67,6 +68,7 @@ async def schedule_command(ctx):
     """
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel
+
 
     await ctx.send("Type `1` for a one-time message or `2` for a recurring message:")
 
@@ -90,9 +92,11 @@ async def schedule_command(ctx):
                 await ctx.send("Invalid date-time format. Please use `2024-11-21 14:40`.")
                 return
 
+
             await ctx.send("Please provide the message to be sent:")
             message_response = await bot.wait_for('message', check=check, timeout=60.0)
             message = message_response.content
+
 
             async def send_message():
                 await send_message_to_target(target, target_type, message, ctx)
@@ -201,6 +205,7 @@ async def remove_job(ctx, job_id: str):
     """
     scheduler.remove_job(job_id)
     await ctx.send(f"Removed: (JOB ID): {job_id}")
+
 
 
 # @bot.command(name='send')
