@@ -1,4 +1,6 @@
 import json
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 import requests
 from collections import defaultdict
 from dotenv import load_dotenv
@@ -7,6 +9,19 @@ import os
 GITHUB_API_URL = "https://api.github.com"
 load_dotenv()
 GITHUB_PAT = os.getenv("GITHUB_PAT")
+
+
+#set up the variables here for the inital mongo DB needs to be in the envfile  DONE
+load_dotenv()
+uri = os.environ('mongo_uri')
+# Create a new client and connect to the server
+client = MongoClient(uri, server_api=ServerApi('1'))
+#ping server 
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+except Exception as e:
+    print(e)
 
 FILE_EXTENSIONS = {
     'Python': ['.py'],
@@ -119,11 +134,34 @@ def process_repo(repo_owner, repo_name):
         }
     }
 
-def write_results_to_file(data, filename):
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=4)
+
+
+#   Not sure if this is the way to go, without being able to test bot can't tell.
+#  def write_results_to_mongo(data):
+#     db = client['hackathon']
+#     collection = db['github_stats']
+#     collection.insert_one(data)
+
+def insert_data_to_mongo(data):
+   # with open('global_stats.json') as f:
+       # data = json.load(f)
+    db = client['hackathon']
+    collection = db['global_stats']  #sure naming syntax can be changed
+    #or many 
+    collection.insert_many(data)
+
+
+# add to the repo list from bot 
+
+
+#stays the same? 
+#def write_results_to_file(data, filename):
+   # with open(filename, 'w') as f:
+     #   json.dump(data, f, indent=4)
 
 def main():
+    #hard coded?
+    #next add to the database from the bot 
     repos = [
         {"owner": "totally-not-frito-lays", "name": "swapy-sandbox"},
         {"owner": "meanderingleaf", "name": "hackathon-mentor-bot"},
@@ -155,7 +193,11 @@ def main():
         "repo_array": repo_array
     }
 
-    write_results_to_file(output_data, "global_stats.json")
+    #this will output data to the mongoDB database 
+    #write_results_to_file(output_data, "global_stats.json")
+
+    #write to mongo/ new data
+    insert_data_to_mongo(output_data)
 
 if __name__ == "__main__":
     main()
