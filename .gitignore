@@ -157,6 +157,11 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+
+
+#MongoAtlas URI
+mongo_uri = MongoClient('mongodb+srv://justisguin:7w5GKfbC4BxZ3zgP@hackathonbot.96inpog.mongodb.net/')
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
