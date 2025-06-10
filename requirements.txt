@@ -9,3 +9,5 @@ multidict==6.1.0
 propcache==0.2.0
 python-dotenv==1.0.1
 yarl==1.18.0
+plotly~=6.1.2
+APScheduler~=3.11.0

@@ -398,4 +398,61 @@ async def on_message(message):
     # needed to process other `bot.commands`
     await bot.process_commands(message)
 
+@bot.command(name='start')
+async def start(ctx):
+    await brainstormgame(ctx)
+
+async def brainstormgame(ctx):
+    interests = ["Space", "Cats", "Horror"]
+    options_to_pick = ["Meow-tergeist – A haunted space station full of ghost cats.",
+                       "CosmoCat Chronicles – You play as a telepathic space cat solving a cosmic horror mystery.",
+                       "Litter-22 – A survival horror game in a derelict ship run by mutated felines.",
+                       "Whisker Void – Explore the abyss of space with your cat crew as unknown horrors lurk.",
+                       "Tabby Terror – Manage a space shelter where cats keep disappearing into the dark…"]
+
+    try:
+        options_text = ""
+        for index, option in enumerate(options_to_pick):
+            options_text += f"{index + 1}. {option}\n"
+
+        await ctx.reply(f"Select two(2) options to remove: \n{options_text}")
+
+        def check(m):
+            return m.author == ctx.author and m.channel == ctx.channel
+
+        msg = await bot.wait_for("message", check=check, timeout=30)
+        choices = msg.content.split(",")
+
+        selected = []
+        for i in choices:
+            if i.strip().isdigit():
+                selected.append(int(i.strip()))
+            else:
+                await ctx.send("Please enter a digit")
+                return
+
+        if len(selected) != 2:
+            await ctx.send("Please select **exactly 2 valid options** from the list.")
+
+        selected = [int(i.strip()) - 1 for i in choices]
+        if any(i < 0 or i >= len(options_to_pick) for i in selected):
+            await ctx.send("Invalid selection. Please choose numbers from the list.")
+            return
+
+        selected.sort(reverse=True)
+        for i in selected:
+            del options_to_pick[i]
+
+        await ctx.reply(f"Removing options: {' and '.join(str(i + 1) for i in selected)}")
+        # await ctx.reply(f"Selected options: \n" + "\n".join(str(i) for i in options_to_pick))
+
+        await ctx.reply(f"Final idea: {random.choice(options_to_pick)}")
+
+    except discord.errors.TimeoutError:
+        await ctx.send("You took too long to respond. Try again with `!start`.")
+
+    except Exception as e:
+        await ctx.send(f"Something went wrong: {e}")
+
+        # 1308947389159182476
 bot.run(BOT_TOKEN)
