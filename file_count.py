@@ -150,8 +150,49 @@ def insert_data_to_mongo(data):
     #or many 
     collection.insert_many(data)
 
+#Need to test
+#Function for Repos 
+def add_repo_to_db(owner, repo_name, added_by, client):
+    db = client['hackathon']
+    collection = db['global_stats']
+    doc = collection.find_one()
 
-# add to the repo list from bot 
+    if not doc:
+        return False  # No global_stats document exists
+
+    # Check if repo already exists in repo_array
+    for repo in doc.get("repo_array", []):
+        if repo["github_user"] == owner and repo["github_repo"] == repo_name:
+            return False  # Duplicate found
+
+    # Process the repo to attach file_stats
+    from file_count import process_repo  # import here to avoid circular import
+    try:
+        repo_data = process_repo(owner, repo_name)
+        repo_data["discord_user"] = added_by
+    except Exception as e:
+        print(f"Failed to process repo: {e}")
+        return False
+
+    # Push the new repo into the repo_array
+    collection.update_one(
+        {"_id": doc["_id"]},
+        {"$push": {"repo_array": repo_data}}
+    )
+
+    return True
+
+
+    
+def get_all_repos_from_global_stats(client):
+    db = client['hackathon']
+    collection = db['global_stats']
+    doc = collection.find_one()
+
+    if not doc or "repo_array" not in doc:
+        return []
+
+    return doc["repo_array"]
 
 
 #stays the same? 
@@ -159,14 +200,15 @@ def insert_data_to_mongo(data):
    # with open(filename, 'w') as f:
      #   json.dump(data, f, indent=4)
 
+    
+
 def main():
-    #hard coded?
-    #next add to the database from the bot 
-    repos = [
-        {"owner": "totally-not-frito-lays", "name": "swapy-sandbox"},
-        {"owner": "meanderingleaf", "name": "hackathon-mentor-bot"},
-        # Add more repositories as needed
-    ]
+    # Get all GitHub repos added via the bot
+    repos = get_all_repos_from_global_stats(client)
+
+    if not repos:
+        print("No repositories found in the database.")
+        return
 
     global_stats = {
         "total_lines": 0,
@@ -178,7 +220,7 @@ def main():
     repo_array = []
 
     for repo in repos:
-        repo_data = process_repo(repo["owner"], repo["name"])
+        repo_data = process_repo(repo["github_user"], repo["github_repo"])
         repo_array.append(repo_data)
 
         global_stats["total_lines"] += repo_data["file_stats"]["repo_stats"]["total_lines"]
@@ -193,11 +235,7 @@ def main():
         "repo_array": repo_array
     }
 
-    #this will output data to the mongoDB database 
-    #write_results_to_file(output_data, "global_stats.json")
-
-    #write to mongo/ new data
+    # Write directly to MongoDB
     insert_data_to_mongo(output_data)
 
-if __name__ == "__main__":
-    main()
+    print("Stats successfully inserted into MongoDB.")

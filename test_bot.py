@@ -10,7 +10,17 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from pymongo import MongoClient
+from dotenv import load_dotenv
+from file_count import add_repo_to_db
+
+
+
 load_dotenv()
+
+uri = os.getenv("MONGO_URI")
+client = MongoClient(uri)
+
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_TOKEN = os.getenv('DISCORD_GUILD')
 
@@ -377,6 +387,18 @@ async def get_responses(ctx):
         await ctx.author.send(embed=embed, file=file)
     else:
         await ctx.author.send("You have no recorded responses.")
+
+
+
+
+
+@bot.command(name='add_repo')
+async def add_repo(ctx, owner: str, repo_name: str):
+    success = add_repo_to_db(owner, repo_name, str(ctx.author), client)
+    if success:
+        await ctx.send(f" Added and processed `{owner}/{repo_name}`.")
+    else:
+        await ctx.send(f" Could not add `{owner}/{repo_name}`. It may already exist or failed to fetch.")
 
 
 """
